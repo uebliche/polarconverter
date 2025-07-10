@@ -45,6 +45,8 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Update Description
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
         run: ./gradlew modrinthSyncBody
 
   build:
