@@ -1,6 +1,7 @@
 // build.gradle
 import groovy.json.JsonSlurper
 import net.fabricmc.loom.task.RemapJarTask
+import java.io.ByteArrayOutputStream
 
 plugins {
     id 'systems.manifold.manifold-gradle-plugin' version "${manifold_plugin_version}"
@@ -281,7 +282,12 @@ tasks.register('buildAllVersions') {
     }
 }
 
-tasks.modrinth.dependsOn(tasks.modrinthSyncBody)
+def generateChangelog = {
+    def proc = ['git', 'log', '--pretty=format:- %s', '--no-merges', '-n', '10'].execute()
+    proc.waitFor()
+    def output = proc.in.text.trim()
+    return output ?: "No recent changes."
+}
 
 modrinth {
     syncBodyFrom = rootProject.file("README.md").text
@@ -295,4 +301,5 @@ modrinth {
     dependencies {
         required.project "fabric-api"
     }
+    changelog = "🔄 Changes:\n${generateChangelog()}"
 }
