@@ -17,25 +17,17 @@ jobs:
       - name: Parse Versions
         id: set-matrix
         run: |
-          # Lies die Mindestversion aus gradle.properties
           MIN_VERSION=$(grep '^buildFromVersion=' gradle.properties | cut -d'=' -f2)
 
-          # Hole alle Versionen von Fabric Meta
           curl -s https://meta.fabricmc.net/v2/versions/game > versions.json
 
-          # Bestimme die neueste stable Version
-          LATEST_STABLE=$(jq -r '.[] | select(.stable == true) | .version' versions.json | sort -V | tail -n1)
-
-          echo "Latest stable: $LATEST_STABLE"
-          echo "Minimum build version: $MIN_VERSION"
-
-          # Jetzt alle Versionen >= MIN_VERSION und <= LATEST_STABLE sammeln
-          VERSIONS=$(jq -r '.[].version' versions.json | sort -V | \
-            awk -v min="$MIN_VERSION" -v max="$LATEST_STABLE" '{
-              if (($1 >= min) && ($1 <= max)) print $1
+          VERSIONS=$(jq -r '.[] | select(.stable == true) | .version' versions.json | sort -V | \
+            awk -v min="$MIN_VERSION" '{
+              if ($1 >= min) print $1
             }' | jq -R -s -c 'split("\n")[:-1]')
 
           echo "matrix=$VERSIONS" >> $GITHUB_OUTPUT
+  
 
   build:
     needs: generate-matrix
