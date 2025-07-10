@@ -58,7 +58,7 @@ jobs:
       - name: Build
         run: ./gradlew build shadowJar -Pminecraft_version=${{ matrix.mc_version }}
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: mod-${{ matrix.mc_version }}
           path: build/libs/*.jar
