@@ -1,0 +1,64 @@
+name: Build from buildFromVersion to latest Stable (inclusive)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Parse Versions
+        id: set-matrix
+        run: |
+          # Lies die Mindestversion aus gradle.properties
+          MIN_VERSION=$(grep '^buildFromVersion=' gradle.properties | cut -d'=' -f2)
+
+          # Hole alle Versionen von Fabric Meta
+          curl -s https://meta.fabricmc.net/v2/versions/game > versions.json
+
+          # Bestimme die neueste stable Version
+          LATEST_STABLE=$(jq -r '.[] | select(.stable == true) | .version' versions.json | sort -V | tail -n1)
+
+          echo "Latest stable: $LATEST_STABLE"
+          echo "Minimum build version: $MIN_VERSION"
+
+          # Jetzt alle Versionen >= MIN_VERSION und <= LATEST_STABLE sammeln
+          VERSIONS=$(jq -r '.[].version' versions.json | sort -V | \
+            awk -v min="$MIN_VERSION" -v max="$LATEST_STABLE" '{
+              if (($1 >= min) && ($1 <= max)) print $1
+            }' | jq -R -s -c 'split("\n")[:-1]')
+
+          echo "matrix=$VERSIONS" >> $GITHUB_OUTPUT
+
+  build:
+    needs: generate-matrix
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        mc_version: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+
+    name: Build ${{ matrix.mc_version }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+      - name: Build
+        run: ./gradlew build shadowJar -Pminecraft_version=${{ matrix.mc_version }}
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: mod-${{ matrix.mc_version }}
+          path: build/libs/*.jar

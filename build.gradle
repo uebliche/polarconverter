@@ -7,7 +7,9 @@ plugins {
     id 'fabric-loom' version "${loom_version}"
     id 'maven-publish'
     id 'com.gradleup.shadow' version '9.0.0-beta15'
+    id 'com.modrinth.minotaur' version '2.+'
 }
+
 ext.cachedJdList = null
 
 
@@ -276,5 +278,21 @@ tasks.register('buildAllVersions') {
         }
 
         println "\n✅ Alle Shadow-Builds gespeichert unter: ${outputDir.absolutePath}"
+    }
+}
+
+tasks.modrinth.dependsOn(tasks.modrinthSyncBody)
+
+modrinth {
+    syncBodyFrom = rootProject.file("README.md").text
+    token = System.getenv("MODRINTH_TOKEN")
+    projectId = project.modrinth_projectId
+    versionNumber = project.mod_version
+    versionType = project.mod_version_type
+    uploadFile = shadowJar
+    gameVersions = ["${project.minecraft_version}"]
+    loaders = ["fabric"]
+    dependencies {
+        required.project "fabric-api"
     }
 }
