@@ -216,6 +216,8 @@ publishing {
         // Define publishing destinations here
     }
 }
+def isWindows = System.getProperty("os.name").toLowerCase().contains("win")
+def gradleCommand = isWindows ? "gradlew.bat" : "./gradlew"
 
 tasks.register('buildAllVersions') {
     doLast {
@@ -251,7 +253,7 @@ tasks.register('buildAllVersions') {
             def result = exec {
                 workingDir = project.projectDir
                 environment "minecraft_version", mcVer
-                commandLine "./gradlew.bat", "clean", "build", "shadowJar", "-Pminecraft_version=$mcVer"
+                commandLine gradleCommand, "clean", "build", "shadowJar", "-Pminecraft_version=$mcVer"
                 ignoreExitValue = true
             }
             if (result.exitValue != 0) {
