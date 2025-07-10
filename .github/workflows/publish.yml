@@ -43,9 +43,9 @@ jobs:
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
-        
+
       - name: Update Description
-        run: ./gradlew build modrinthSyncBody
+        run: ./gradlew modrinthSyncBody
 
   build:
     needs: generate-matrix
