@@ -1,0 +1,86 @@
+name: Build from buildFromVersion to latest Stable (inclusive)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Parse Versions
+        id: set-matrix
+        run: |
+          MIN_VERSION=$(grep '^buildFromVersion=' gradle.properties | cut -d'=' -f2)
+
+          curl -s https://meta.fabricmc.net/v2/versions/game > versions.json
+
+          VERSIONS=$(jq -r '.[] | select(.stable == true) | .version' versions.json | sort -V | \
+            awk -v min="$MIN_VERSION" '{
+              if ($1 >= min) print $1
+            }' | jq -R -s -c 'split("\n")[:-1]')
+
+          echo "matrix=$VERSIONS" >> $GITHUB_OUTPUT
+  update-description:
+
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Update Description
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: ./gradlew modrinthSyncBody
+
+  build:
+    needs: generate-matrix
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        mc_version: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+
+    name: Build ${{ matrix.mc_version }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build
+        run: ./gradlew build shadowJar -Pminecraft_version=${{ matrix.mc_version }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-${{ matrix.mc_version }}
+          path: build/libs/*.jar
+
+      - name: Publish to Modrinth
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: ./gradlew modrinth -Pminecraft_version=${{ matrix.mc_version }}
