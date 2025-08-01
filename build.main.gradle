@@ -1,5 +1,6 @@
-// build.gradle
+// build.main.gradle
 import groovy.json.JsonSlurper
+
 import java.io.ByteArrayOutputStream
 
 ext.cachedJdList = null
@@ -16,6 +17,17 @@ def getGitTag = {
     }
 }
 version = getGitTag()
+
+def shortGitHash = {
+    try {
+        def proc = "git rev-parse --short HEAD".execute()
+        proc.waitFor()
+        return proc.in.text.trim()
+    } catch (Exception e) {
+        return "unknown"
+    }
+}()
+
 group = project.maven_group
 
 base {
@@ -188,6 +200,8 @@ manifold {
 // This block configures the shadowJar task to use the 'shadow' configuration.
 shadowJar {
     configurations = [project.configurations.shadow]
+    // Use the shortGitHash variable defined above
+    archiveFileName = "${project.archives_base_name}-${version}-${shortGitHash}.jar"
 }
 
 // -------------------- Assemble Task Dependency --------------------
@@ -305,6 +319,11 @@ publishing {
 def isWindows = System.getProperty("os.name").toLowerCase().contains("win")
 def gradleCommand = isWindows ? "gradlew.bat" : "./gradlew"
 
+remapJar {
+    dependsOn shadowJar
+    inputFile = shadowJar.archiveFile.get()
+}
+
 tasks.register('buildAllVersions') {
     doLast {
         def minVersion = project.hasProperty("buildFromVersion") ? project.buildFromVersion : "1.0.0"
@@ -380,7 +399,7 @@ modrinth {
     versionNumber = project.mod_version
     versionName = "${archives_base_name}-${minecraft_version}+${mod_version}"
     versionType = project.mod_version_type
-    uploadFile = shadowJar
+    uploadFile = remapJar
     gameVersions = ["${project.minecraft_version}"]
     loaders = ["fabric"]
     dependencies {
