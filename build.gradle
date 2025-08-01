@@ -141,21 +141,22 @@ ext.fabric_version = resolved.api
 
 // -------------------- DEPENDENCIES --------------------
 dependencies {
-    annotationProcessor "systems.manifold:manifold-preprocessor:${rootProject.manifold_version}"
+    annotationProcessor libs.manifold
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings loom.officialMojangMappings()
     modImplementation "net.fabricmc:fabric-loader:${loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
 
     if (project.minecraft_version.startsWith("1.16")) {
-        implementation "org.slf4j:slf4j-api:1.7.36"
-        runtimeOnly "org.slf4j:slf4j-simple:1.7.36"
+        implementation libs.slf4j.api
+        runtimeOnly libs.slf4j.simple
         println "📦 SLF4J für Minecraft ${project.minecraft_version} aktiviert"
     }
-    implementation "net.minestom:minestom:2025.07.30-1.21.8"
-    implementation "dev.hollowcube:polar:1.14.6"
-    shadow "net.minestom:minestom:2025.07.30-1.21.8"
-    shadow "dev.hollowcube:polar:1.14.6"
+
+    implementation libs.minestom
+    implementation libs.polar
+    shadow libs.minestom
+    shadow libs.polar
 
 }
 

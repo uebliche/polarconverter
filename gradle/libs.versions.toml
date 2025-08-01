@@ -1,0 +1,12 @@
+[versions]
+minestom = "2025.07.30-1.21.8"
+polar = "1.14.6"
+manifold = "2025.1.25"
+slf4j = "1.7.36"
+
+[libraries]
+minestom = { module = "net.minestom:minestom", version.ref = "minestom" }
+polar = { module = "dev.hollowcube:polar", version.ref = "polar" }
+manifold = { module ="systems.manifold:manifold-preprocessor", version.ref = "manifold" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
