@@ -152,11 +152,16 @@ dependencies {
         runtimeOnly "org.slf4j:slf4j-simple:1.7.36"
         println "📦 SLF4J für Minecraft ${project.minecraft_version} aktiviert"
     }
+    implementation "net.minestom:minestom:2025.07.30-1.21.8"
+    implementation "dev.hollowcube:polar:1.14.6"
+    shadow "net.minestom:minestom:2025.07.30-1.21.8"
+    shadow "dev.hollowcube:polar:1.14.6"
 
 }
 
 repositories {
     // Additional repositories can be declared here
+    mavenCentral()
 }
 
 manifold {
@@ -187,9 +192,10 @@ processResources {
                 "mod_id"           : project.mod_id,
                 "mod_name"         : project.mod_name,
                 "mod_description"  : project.mod_description,
-                "main_class"       : project.main_class,
                 "icon_path"        : project.icon_path,
-                "minecraft_version": project.minecraft_version])
+                "minecraft_version": project.minecraft_version,
+                "license_type"   : project.license_type,
+        ])
     }
 }
 
@@ -200,8 +206,23 @@ java {
 }
 
 jar {
+    from(sourceSets.main.output) {
+        include 'net/kyori/**'
+        include 'net/minestom/**'
+        include 'dev/hollowcube/**'
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    } {
+        include 'META-INF/services/**'
+        include 'net/kyori/**'
+        include 'net/minestom/**'
+        include 'dev/hollowcube/**'
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+
     inputs.property "archivesName", project.base.archivesName
-    from("LICENSE") { rename { "${it}_${inputs.properties.archivesName}" } }
+    from("LICENSE.md") { rename { "${it}_${inputs.properties.archivesName}" } }
 
     // Dynamischer JAR-Dateiname basierend auf MC- und Mod-Version
     archiveFileName = "${archives_base_name}-${minecraft_version}+${mod_version}.jar"

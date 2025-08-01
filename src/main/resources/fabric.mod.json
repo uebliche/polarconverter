@@ -4,17 +4,14 @@
 	"version": "${version}",
 	"name": "${mod_name}",
 	"description": "${mod_description}",
-	"authors": ["Me!"],
+	"authors": ["Freddi"],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://modrinth.com/mod/polarconverter",
+		"sources": "https://github.com/uebliche/polarconverter"
 	},
-	"license": "CC0-1.0",
+	"license": "${license_type}",
 	"icon": "${icon_path}",
 	"environment": "*",
-	"entrypoints": {
-		"main": ["${main_class}"]
-	},
 	"mixins": ["${mod_id}.mixins.json"],
 	"depends": {
 		"fabricloader": ">=0.16.14",
@@ -23,6 +20,5 @@
 		"fabric-api": "*"
 	},
 	"suggests": {
-		"another-mod": "*"
 	}
 }

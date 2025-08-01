@@ -1,0 +1,16 @@
+{
+	"required": true,
+	"package": "net.uebliche.polarconverter.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+	],
+	"client": [
+		"EditWorldScreenMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}
