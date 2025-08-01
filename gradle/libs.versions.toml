@@ -1,0 +1,10 @@
+[versions]
+slf4j = "1.7.36"
+manifold = "2025.1.25"
+devAuth = "1.2.1"
+
+[libraries]
+devauth-fabric = { module = "me.djtheredstoner:DevAuth-fabric", version.ref = "devAuth" }
+manifold = { module ="systems.manifold:manifold-preprocessor", version.ref = "manifold" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
