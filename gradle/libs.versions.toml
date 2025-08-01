@@ -2,9 +2,18 @@
 slf4j = "1.7.36"
 manifold = "2025.1.25"
 devAuth = "1.2.1"
+shadow = "9.0.0-beta15"
+minotaur = "2.+"
+manifold_plugin = "0.0.2-alpha"
 
 [libraries]
 devauth-fabric = { module = "me.djtheredstoner:DevAuth-fabric", version.ref = "devAuth" }
 manifold = { module ="systems.manifold:manifold-preprocessor", version.ref = "manifold" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+
+[plugins]
+manifold = { id = "systems.manifold.manifold-gradle-plugin", version.ref = "manifold_plugin" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
+minotaur = { id = "com.modrinth.minotaur", version.ref = "minotaur" }
+
