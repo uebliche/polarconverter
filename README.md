@@ -2,8 +2,7 @@
 # PolarConverter
 <!-- modrinth_exclude.end -->
 
-![javaw_OsXNNLtkXZ.gif](javaw_OsXNNLtkXZ.gif)
-
+![process](https://raw.githubusercontent.com/uebliche/polarconverter/refs/heads/main/javaw_OsXNNLtkXZ.gif)
 
 ## Polar ( [hollow-cube/polar](https://github.com/hollow-cube/polar) )
 _A world format for Minestom designed for simpler and smaller handling of small worlds, particularly for user generated content where size matters._

@@ -165,9 +165,12 @@ repositories {
     mavenCentral()
 }
 
+def libs = project.extensions.findByType(VersionCatalogsExtension).named("libs")
+
 manifold {
-    manifoldVersion = rootProject.manifold_version
+    manifoldVersion = libs.findVersion("manifold").get().requiredVersion
 }
+
 shadowJar {
     //minimize()
     configurations = [project.configurations.shadow]
