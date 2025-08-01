@@ -8,7 +8,7 @@
     "contact": ${contact},
     "license": "${license_type}",
     "icon": "${icon_path}",
-    "environment": "*",
+    "environment": "CLIENT",
     "entrypoints": {
         "main": [
             "${main_class}"
@@ -20,7 +20,7 @@
     "depends": {
         "fabricloader": "~${fabricloader_version}",
         "minecraft": "~${minecraft_version}",
-        "java": ">=21",
+        "java": ">=${java_version}",
         "fabric-api": "*"
     },
     "custom": ${custom}

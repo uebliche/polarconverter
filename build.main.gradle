@@ -259,7 +259,18 @@ processResources {
                 "authors"          : authorsJson, // Insert as JSON array string
                 "contact"          : contactJson, // Insert as JSON object string
                 "custom"           : customJson, // Insert custom data as JSON object string
+                "java_version"   : effectiveJavaVersion.majorVersion,
         ])
+    }
+}
+
+// Nach processResources Task: fabric.mod.json ausgeben
+tasks.named("processResources").configure {
+    doLast {
+        def modJsonFile = file("build/resources/main/fabric.mod.json")
+        println "----- fabric.mod.json -----"
+        println modJsonFile.text
+        println "--------------------------"
     }
 }
 

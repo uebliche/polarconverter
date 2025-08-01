@@ -6,4 +6,4 @@ plugins {
     id 'com.modrinth.minotaur' version '2.+'
 }
 
-apply from: 'build.main.gradle'
+apply from: 'https://raw.githubusercontent.com/uebliche/mod-template/main/build.main.gradle'
