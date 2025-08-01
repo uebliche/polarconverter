@@ -1,5 +1,6 @@
 // build.main.gradle
 import groovy.json.JsonSlurper
+
 import java.io.ByteArrayOutputStream
 
 ext.cachedJdList = null
@@ -318,6 +319,11 @@ publishing {
 def isWindows = System.getProperty("os.name").toLowerCase().contains("win")
 def gradleCommand = isWindows ? "gradlew.bat" : "./gradlew"
 
+remapJar {
+    dependsOn shadowJar
+    inputFile = shadowJar.archiveFile.get()
+}
+
 tasks.register('buildAllVersions') {
     doLast {
         def minVersion = project.hasProperty("buildFromVersion") ? project.buildFromVersion : "1.0.0"
@@ -393,7 +399,7 @@ modrinth {
     versionNumber = project.mod_version
     versionName = "${archives_base_name}-${minecraft_version}+${mod_version}"
     versionType = project.mod_version_type
-    uploadFile = shadowJar
+    uploadFile = remapJar
     gameVersions = ["${project.minecraft_version}"]
     loaders = ["fabric"]
     dependencies {

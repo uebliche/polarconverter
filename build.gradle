@@ -6,4 +6,6 @@ plugins {
     alias(libs.plugins.minotaur)
 }
 
-apply from: 'https://raw.githubusercontent.com/uebliche/mod-template/main/build.main.gradle'
+apply from: 'build.main.gradle'
+
+//apply from: 'https://raw.githubusercontent.com/uebliche/mod-template/main/build.main.gradle'
