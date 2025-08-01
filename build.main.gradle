@@ -1,0 +1,409 @@
+// build.gradle
+import groovy.json.JsonSlurper
+import java.io.ByteArrayOutputStream
+
+ext.cachedJdList = null
+
+// Set version to current git tag if available, otherwise fallback to "dev"
+def getGitTag = {
+    try {
+        def proc = "git describe --tags --abbrev=0".execute()
+        proc.waitFor()
+        def tag = proc.in.text.trim()
+        return tag ?: "dev"
+    } catch (Exception e) {
+        return "dev"
+    }
+}
+version = getGitTag()
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+// -------------------- VERSION HANDLING --------------------
+def generateMcVersionMacros(List<String> versions, int selectedIndex) {
+    def sb = new StringBuilder("# DO NOT TOUCH THIS FILE, it is handled by the build script\n")
+    versions.eachWithIndex { v, i ->
+        sb << "MC_${v.replace('.', '_')}=${i}\n"
+        if (i == selectedIndex) sb << "MC_VER=${i}\n"
+    }
+    if (project.mod_version.toLowerCase().contains("dev")) sb << "DEV_BUILD=\n"
+    new File(project.projectDir, "build.properties").text = sb.toString()
+    println "📝 build.properties written with ${versions.size()} versions (MC_VER=${selectedIndex})"
+}
+
+static def parseVersion(String v) {
+    def parts = v.tokenize('.').collect { it.toInteger() }
+    while (parts.size() < 3) parts += 0
+    return parts[0] * 10000 + parts[1] * 100 + parts[2]
+}
+
+static def getJavaVersionForMinecraft(String mcVersion) {
+    def v = parseVersion(mcVersion)
+    if (v >= parseVersion("1.21.0")) return JavaVersion.VERSION_21
+    if (v >= parseVersion("1.20.0")) return JavaVersion.VERSION_17
+    if (v >= parseVersion("1.17.0")) return JavaVersion.VERSION_16
+    return JavaVersion.VERSION_1_8
+}
+
+def effectiveJavaVersion = getJavaVersionForMinecraft(project.minecraft_version)
+
+
+tasks.register('generatePreprocessorDefinitions') {
+    doLast {
+        def mcVersion = project.minecraft_version
+        def parsed = new JsonSlurper().parse(new URL("https://meta.fabricmc.net/v2/versions/game"))
+        def versions = parsed.findAll { it.stable }*.version.sort { a, b ->
+            def norm = { it.tokenize('.').collect { it.padLeft(2, '0') }.join('').toInteger() }
+            norm(a) <=> norm(b)
+        }
+        def index = versions.indexOf(mcVersion)
+        if (index == -1) throw new GradleException("❌ Minecraft version ${mcVersion} is not a known Fabric release.")
+        generateMcVersionMacros(versions, index)
+    }
+}
+tasks.named("compileJava") { dependsOn generatePreprocessorDefinitions }
+
+// -------------------- MANIFOLD COMPILER ARGS --------------------
+tasks.withType(JavaCompile).configureEach {
+    // Set compiler arguments for Manifold and Minecraft versions
+    def mcVer = project.minecraft_version
+    def versionInt = mcVer.tokenize('.').collect { it.padLeft(2, '0') }.join('').toInteger()
+
+    // Fetch all stable Minecraft versions from Fabric meta API
+    def parsed = new JsonSlurper().parse(new URL("https://meta.fabricmc.net/v2/versions/game"))
+    def versions = parsed.findAll { it.stable }*.version
+
+    // Helper to convert version string to integer for comparison
+    def toInt = { version ->
+        def parts = version.tokenize('.')
+        while (parts.size() < 3) parts += '0'
+        def padded = parts.collect { it.toString().padLeft(2, '0') }
+        return padded.join('').toInteger()
+    }
+    // Generate macro definitions for all stable versions
+    // Each macro is used for conditional compilation depending on Minecraft version
+    def defines = versions.collect { ver ->
+        def versionMacro = "MC_" + ver.replace('.', '_')
+        def intVal = toInt(ver)
+        return "-A${versionMacro}=${intVal}"
+    }
+
+    // Add all compiler arguments for Manifold and Minecraft version macros
+    options.compilerArgs += [
+        "-Xplugin:Manifold",
+        "-AMC_VER=${versionInt}",
+        // "-AMC_VER_INT=${versionInt}",
+        "-Xlint:unchecked",
+        "-Xlint:deprecation"
+    ] + defines
+
+    // Set the Java release version according to the effective Minecraft version
+    options.release = Integer.parseInt(effectiveJavaVersion.majorVersion)
+}
+
+// -------------------- Dependency Resolution --------------------
+// This function resolves the correct Fabric loader and API versions for the given Minecraft version.
+def resolveFabricVersions(String mcVersion) {
+    // Load jdlist.txt from Fabric Maven if not cached yet
+    if (project.ext.cachedJdList == null) {
+        println "🌐 Loading jdlist.txt from Fabric Maven..."
+        project.ext.cachedJdList = new URL("https://maven.fabricmc.net/jdlist.txt").text.readLines()
+    } else {
+        println "⚡ Using cached jdlist.txt"
+    }
+
+    def jdList = project.ext.cachedJdList
+
+    // Get the loader version from Fabric meta API
+    def loader = new JsonSlurper().parse(new URL("https://meta.fabricmc.net/v2/versions/loader/${mcVersion}"))[0].loader.version
+
+    // Helper function to parse version strings into comparable lists
+    def parseVersion = { String str -> str.tokenize('.+-').collect { token -> token.isNumber() ? token.toInteger() : token } }
+
+    // Find the latest matching fabric-api version for the given Minecraft version
+    def api = jdList.findAll {
+        it.startsWith("fabric-api-") && it.endsWith("+${mcVersion}")
+    }*.replace("fabric-api-", "")
+            .max { a, b ->
+                // Compare two version strings to determine which is newer
+                def va = parseVersion(a)
+                def vb = parseVersion(b)
+                for (int i = 0; i < Math.max(va.size(), vb.size()); i++) {
+                    def ai = i < va.size() ? va[i] : 0
+                    def bi = i < vb.size() ? vb[i] : 0
+                    if (ai instanceof Number && bi instanceof Number) {
+                        if (ai != bi) return ai <=> bi
+                    } else {
+                        return ai.toString() <=> bi.toString()
+                    }
+                }
+                return 0
+            }
+
+    // Return both loader and API version as a map
+    return [loader: loader, api: api]
+}
+
+// Resolve the loader and API version for the current Minecraft version
+// and store them in project properties for later use
+
+def resolved = resolveFabricVersions(project.minecraft_version)
+ext.loader_version = resolved.loader
+ext.fabric_version = resolved.api
+
+// -------------------- Dependencies --------------------
+// Define all dependencies for the project, including annotation processors, Minecraft, mappings, loader, API, and runtime mods
+
+dependencies {
+    annotationProcessor libs.manifold // Manifold annotation processor
+    minecraft "com.mojang:minecraft:${project.minecraft_version}" // Minecraft main dependency
+    mappings loom.officialMojangMappings() // Official Mojang mappings
+    modImplementation "net.fabricmc:fabric-loader:${loader_version}" // Fabric loader
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}" // Fabric API
+    modRuntimeOnly(libs.devauth.fabric) // DevAuth runtime mod
+
+    // Add SLF4J logging dependencies for Minecraft 1.16
+    if (project.minecraft_version.startsWith("1.16")) {
+        implementation libs.slf4j.api
+        runtimeOnly libs.slf4j.simple
+        println "📦 SLF4J enabled for Minecraft ${project.minecraft_version}"
+    }
+
+}
+
+repositories {
+    maven { url = "https://pkgs.dev.azure.com/djtheredstoner/DevAuth/_packaging/public/maven/v1" }
+}
+
+def libs = project.extensions.findByType(VersionCatalogsExtension).named("libs")
+
+manifold {
+    manifoldVersion = libs.findVersion("manifold").get().requiredVersion
+}
+
+// -------------------- ShadowJar Configuration --------------------
+// This block configures the shadowJar task to use the 'shadow' configuration.
+shadowJar {
+    configurations = [project.configurations.shadow]
+}
+
+// -------------------- Assemble Task Dependency --------------------
+// Ensure that the assemble task depends on shadowJar so the shadow JAR is built automatically.
+tasks.assemble.dependsOn tasks.shadowJar
+
+// -------------------- Resource Processing --------------------
+// This block expands variables in fabric.mod.json during the build process.
+processResources {
+    inputs.property "version", project.version // Track version for up-to-date checks
+    // Get all unique git authors for the authors field
+    def authors = []
+    def proc = "git log --format=%aN".execute()
+    proc.in.eachLine { line ->
+        def name = line.trim().replaceAll(/^'+|'+$/, "")
+        if (name && !authors.contains(name)) {
+            authors << name
+        }
+    }
+    authors.sort()
+
+    // Serialize authors array as JSON string for safe insertion
+    def authorsJson = groovy.json.JsonOutput.toJson(authors)
+
+    // Initialize contact as empty map, not closure!
+    def contact = [:]
+    if(project.hasProperty("homepage"))
+        contact["homepage"] = project.homepage
+    if(project.hasProperty("issues"))
+        contact["issues"] = project.issues
+    if(project.hasProperty("sources"))
+        contact["sources"] = project.sources
+    if(project.hasProperty("discord"))
+        contact["discord"] = project.discord
+
+    def contactJson = groovy.json.JsonOutput.toJson(contact)
+    println "📜 Authors: ${authors.size()} unique contributors found."
+    println "📞 Contact info: ${contactJson}"
+
+
+    def custom = [:]
+
+    def modmenu = [:]
+
+    def modmenu_links = [:]
+
+    if(project.hasProperty("discord"))
+        modmenu_links["modmenu.discord"] = project.discord
+
+    modmenu["links"] = modmenu_links
+
+    custom["modmenu"] = modmenu
+
+    def customJson = groovy.json.JsonOutput.toJson(custom)
+    println "🔧 Custom data: ${customJson}"
+
+    // Use project.name for mod_id (lowercase), mod_name (title case), and icon_path if not set, empty string for others
+    filesMatching("fabric.mod.json") {
+        expand([
+                "version"          : project.hasProperty("version")           ? project.version           : "",
+                "mod_id"           : project.hasProperty("mod_id")            ? project.mod_id            : project.name.toLowerCase(),
+                "mod_name"         : project.hasProperty("mod_name")          ? project.mod_name          : project.name.tokenize(' _-').collect { it.capitalize() }.join(' '),
+                "mod_description"  : project.hasProperty("mod_description")   ? project.mod_description   : "",
+                "main_class"       : project.hasProperty("main_class")        ? project.main_class        : "",
+                "icon_path"        : project.hasProperty("icon_path")         ? project.icon_path         : "assets/${project.name}/icon.png",
+                "minecraft_version": project.hasProperty("minecraft_version") ? project.minecraft_version : "",
+                "fabricloader_version": project.hasProperty("loader_version") ? project.loader_version : "",
+                "license_type"     : project.hasProperty("license_type")      ? project.license_type      : "",
+                "authors"          : authorsJson, // Insert as JSON array string
+                "contact"          : contactJson, // Insert as JSON object string
+                "custom"           : customJson, // Insert custom data as JSON object string
+                "java_version"   : effectiveJavaVersion.majorVersion,
+        ])
+    }
+}
+
+// Nach processResources Task: fabric.mod.json ausgeben
+tasks.named("processResources").configure {
+    doLast {
+        def modJsonFile = file("build/resources/main/fabric.mod.json")
+        println "----- fabric.mod.json -----"
+        println modJsonFile.text
+        println "--------------------------"
+    }
+}
+
+// -------------------- Java Configuration --------------------
+// Configure Java compilation settings and source JAR generation.
+java {
+    withSourcesJar() // Also generate a sources JAR for IDEs and publishing
+    targetCompatibility = effectiveJavaVersion // Set Java target compatibility based on Minecraft version
+}
+
+jar {
+    inputs.property "archivesName", project.base.archivesName
+    from("LICENSE.md") { rename { "${it}_${inputs.properties.archivesName}" } }
+
+    // Dynamic JAR filename based on MC and mod version
+    archiveFileName = "${archives_base_name}-${minecraft_version}+${mod_version}.jar"
+}
+
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
+        }
+    }
+    repositories {
+        // Define publishing destinations here
+    }
+}
+
+def isWindows = System.getProperty("os.name").toLowerCase().contains("win")
+def gradleCommand = isWindows ? "gradlew.bat" : "./gradlew"
+
+tasks.register('buildAllVersions') {
+    doLast {
+        def minVersion = project.hasProperty("buildFromVersion") ? project.buildFromVersion : "1.0.0"
+        def minInt = parseVersion(minVersion)
+
+        def jdList = project.ext.cachedJdList ?: new URL("https://maven.fabricmc.net/jdlist.txt").text.readLines()
+        project.ext.cachedJdList = jdList
+
+        def rawVersions = new JsonSlurper()
+                .parse(new URL("https://meta.fabricmc.net/v2/versions/game"))
+                .findAll { it.stable }
+                .collect { it.version }
+                .findAll { ver ->
+                    def versionInt = parseVersion(ver)
+                    return versionInt >= parseVersion(minVersion) &&
+                            jdList.any { it.startsWith("fabric-api-") && it.endsWith("+${ver}") }
+                }
+                .sort { -parseVersion(it) }
+
+
+        def filtered = rawVersions.findAll { parseVersion(it) >= minInt }
+                .sort { -parseVersion(it) }
+
+        println "🚀 Building for the following Minecraft versions (>= ${minVersion}) in descending order:"
+        filtered.each { println " - ${it}" }
+
+        def outputDir = new File(project.projectDir, "out")
+        outputDir.mkdirs()
+
+        // Iterate over all filtered Minecraft versions and build for each
+        filtered.each { mcVer ->
+            println "\n⚙️ Building for $mcVer..."
+            def result = exec {
+                workingDir = project.projectDir
+                environment "minecraft_version", mcVer
+                commandLine gradleCommand, "clean", "build", "shadowJar", "-Pminecraft_version=$mcVer"
+                ignoreExitValue = true
+            }
+            if (result.exitValue != 0) {
+                println "❌ Error building for ${mcVer}, skipping..."
+                return
+            }
+
+            // Input file: mod-template-<version>-all-remapped.jar
+            def fromName = "${archives_base_name}-${mod_version}.jar"
+            def sourceFile = file("build/libs/${fromName}")
+            def targetName = "${archives_base_name}-${mcVer}+${mod_version}.jar"
+            def targetFile = new File(outputDir, targetName)
+
+            if (sourceFile.exists()) {
+                println "📤 Copying ${fromName} → ${targetName}"
+                sourceFile.renameTo(targetFile)
+            } else {
+                println "⚠️ ${fromName} not found – build might be empty."
+            }
+        }
+
+        println "\n✅ All shadow builds saved under: ${outputDir.absolutePath}"
+    }
+}
+
+def generateChangelog = {
+    def proc = ['git', 'log', '--pretty=format:- %s', '--no-merges', '-n', '10'].execute()
+    proc.waitFor()
+    def output = proc.in.text.trim()
+    return output ?: "No recent changes."
+}
+
+modrinth {
+    syncBodyFrom = rootProject.file("README.md").text
+    token = System.getenv("MODRINTH_TOKEN")
+    projectId = project.modrinth_projectId
+    versionNumber = project.mod_version
+    versionName = "${archives_base_name}-${minecraft_version}+${mod_version}"
+    versionType = project.mod_version_type
+    uploadFile = shadowJar
+    gameVersions = ["${project.minecraft_version}"]
+    loaders = ["fabric"]
+    dependencies {
+        required.project "fabric-api"
+    }
+    changelog = "🔄 Changes:\n${generateChangelog()}"
+}
+
+task updateAuthors {
+    doLast {
+        def authors = []
+        def proc = "git log --format=%aN".execute() // without single quotes
+        proc.in.eachLine { line ->
+            def name = line.trim().replaceAll(/^'+|'+$/, "") // removes leading and trailing '
+            if (name && !authors.contains(name)) {
+                authors << name
+            }
+        }
+        authors.sort()
+        def jsonFile = file("src/main/resources/fabric.mod.json")
+        def json = new groovy.json.JsonSlurper().parse(jsonFile)
+        json.authors = authors
+        jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(json))
+        println "Authors updated: " + authors
+    }
+}
