@@ -1,4 +1,4 @@
-// build.gradle
+// build.main.gradle
 import groovy.json.JsonSlurper
 import java.io.ByteArrayOutputStream
 
@@ -16,6 +16,17 @@ def getGitTag = {
     }
 }
 version = getGitTag()
+
+def shortGitHash = {
+    try {
+        def proc = "git rev-parse --short HEAD".execute()
+        proc.waitFor()
+        return proc.in.text.trim()
+    } catch (Exception e) {
+        return "unknown"
+    }
+}()
+
 group = project.maven_group
 
 base {
@@ -188,6 +199,8 @@ manifold {
 // This block configures the shadowJar task to use the 'shadow' configuration.
 shadowJar {
     configurations = [project.configurations.shadow]
+    // Use the shortGitHash variable defined above
+    archiveFileName = "${project.archives_base_name}-${version}-${shortGitHash}.jar"
 }
 
 // -------------------- Assemble Task Dependency --------------------

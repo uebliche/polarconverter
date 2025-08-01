@@ -19,14 +19,22 @@ jobs:
         run: |
           MIN_VERSION=$(grep '^buildFromVersion=' gradle.properties | cut -d'=' -f2)
 
+          # Download all stable Minecraft versions
           curl -s https://meta.fabricmc.net/v2/versions/game > versions.json
+          # Download jdlist.txt with all Fabric API versions
+          curl -s https://maven.fabricmc.net/jdlist.txt > jdlist.txt
 
+          # Extract all stable Minecraft versions >= MIN_VERSION
           VERSIONS=$(jq -r '.[] | select(.stable == true) | .version' versions.json | sort -V | \
-            awk -v min="$MIN_VERSION" '{
-              if ($1 >= min) print $1
-            }' | jq -R -s -c 'split("\n")[:-1]')
+            awk -v min="$MIN_VERSION" '{ if ($1 >= min) print $1 }')
 
-          echo "matrix=$VERSIONS" >> $GITHUB_OUTPUT
+          # Extract all Minecraft versions for which a Fabric API exists
+          FABRIC_API_MC_VERSIONS=$(grep -oP 'fabric-api-[^+]+?\+\K[0-9]+\.[0-9]+(\.[0-9]+)?' jdlist.txt | sort -V | uniq)
+
+          # Find the intersection of both lists
+          FINAL_VERSIONS=$(comm -12 <(echo "$VERSIONS") <(echo "$FABRIC_API_MC_VERSIONS") | jq -R -s -c 'split("\n")[:-1]')
+
+          echo "matrix=$FINAL_VERSIONS" >> $GITHUB_OUTPUT
   update-description:
 
     runs-on: ubuntu-latest
