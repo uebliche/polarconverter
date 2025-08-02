@@ -8,12 +8,8 @@
     "contact": ${contact},
     "license": "${license_type}",
     "icon": "${icon_path}",
-    "environment": "CLIENT",
-    "entrypoints": {
-        "main": [
-            "${main_class}"
-        ]
-    },
+    "environment": "${environment}",
+    "entrypoints": ${entrypoints},
     "mixins": [
         "${mod_id}.mixins.json"
     ],
