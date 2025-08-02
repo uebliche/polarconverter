@@ -200,8 +200,6 @@ manifold {
 // This block configures the shadowJar task to use the 'shadow' configuration.
 shadowJar {
     configurations = [project.configurations.shadow]
-    // Use the shortGitHash variable defined above
-    archiveFileName = "${project.archives_base_name}-${version}-${shortGitHash}.jar"
 }
 
 // -------------------- Assemble Task Dependency --------------------
