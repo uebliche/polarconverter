@@ -105,11 +105,11 @@ tasks.withType(JavaCompile).configureEach {
 
     // Add all compiler arguments for Manifold and Minecraft version macros
     options.compilerArgs += [
-        "-Xplugin:Manifold",
-        "-AMC_VER=${versionInt}",
-        // "-AMC_VER_INT=${versionInt}",
-        "-Xlint:unchecked",
-        "-Xlint:deprecation"
+            "-Xplugin:Manifold",
+            "-AMC_VER=${versionInt}",
+            // "-AMC_VER_INT=${versionInt}",
+            "-Xlint:unchecked",
+            "-Xlint:deprecation"
     ] + defines
 
     // Set the Java release version according to the effective Minecraft version
@@ -226,13 +226,13 @@ processResources {
 
     // Initialize contact as empty map, not closure!
     def contact = [:]
-    if(project.hasProperty("homepage"))
+    if (project.hasProperty("homepage"))
         contact["homepage"] = project.homepage
-    if(project.hasProperty("issues"))
+    if (project.hasProperty("issues"))
         contact["issues"] = project.issues
-    if(project.hasProperty("sources"))
+    if (project.hasProperty("sources"))
         contact["sources"] = project.sources
-    if(project.hasProperty("discord"))
+    if (project.hasProperty("discord"))
         contact["discord"] = project.discord
 
     def contactJson = groovy.json.JsonOutput.toJson(contact)
@@ -246,7 +246,7 @@ processResources {
 
     def modmenu_links = [:]
 
-    if(project.hasProperty("discord"))
+    if (project.hasProperty("discord"))
         modmenu_links["modmenu.discord"] = project.discord
 
     modmenu["links"] = modmenu_links
@@ -256,22 +256,50 @@ processResources {
     def customJson = groovy.json.JsonOutput.toJson(custom)
     println "🔧 Custom data: ${customJson}"
 
+    def entrypoints = [:]
+    if (project.hasProperty("client_main_class")) {
+        def clientEntrypoints = [project.client_main_class]
+        entrypoints["client"] = clientEntrypoints
+        println "👤 Client entrypoint: ${project.client_main_class}"
+    }
+    if (project.hasProperty("server_main_class")) {
+        def serverEntrypoints = [project.server_main_class]
+        entrypoints["server"] = serverEntrypoints
+        println "👥 Server entrypoint: ${project.server_main_class}"
+    }
+    if (project.hasProperty("common_main_class")) {
+        def commonEntrypoints = [project.common_main_class]
+        entrypoints["common"] = commonEntrypoints
+        println "🌐 Common entrypoint: ${project.common_main_class}"
+    }
+
+    def enviroment = "*"
+    if (project.hasProperty("client_main_class") && project.hasProperty("server_main_class")) {
+        enviroment = "*"
+    } else if (project.hasProperty("client_main_class")) {
+        enviroment = "client"
+    } else if (project.hasProperty("server_main_class")) {
+        enviroment = "server"
+    }
+
+
     // Use project.name for mod_id (lowercase), mod_name (title case), and icon_path if not set, empty string for others
     filesMatching("fabric.mod.json") {
         expand([
-                "version"          : project.hasProperty("version")           ? project.version           : "",
-                "mod_id"           : project.hasProperty("mod_id")            ? project.mod_id            : project.name.toLowerCase(),
-                "mod_name"         : project.hasProperty("mod_name")          ? project.mod_name          : project.name.tokenize(' _-').collect { it.capitalize() }.join(' '),
-                "mod_description"  : project.hasProperty("mod_description")   ? project.mod_description   : "",
-                "main_class"       : project.hasProperty("main_class")        ? project.main_class        : "",
-                "icon_path"        : project.hasProperty("icon_path")         ? project.icon_path         : "assets/${project.name}/icon.png",
-                "minecraft_version": project.hasProperty("minecraft_version") ? project.minecraft_version : "",
+                "version"             : project.hasProperty("version") ? project.version : "",
+                "mod_id"              : project.hasProperty("mod_id") ? project.mod_id : project.name.toLowerCase(),
+                "mod_name"            : project.hasProperty("mod_name") ? project.mod_name : project.name.tokenize(' _-').collect { it.capitalize() }.join(' '),
+                "mod_description"     : project.hasProperty("mod_description") ? project.mod_description : "",
+                "icon_path"           : project.hasProperty("icon_path") ? project.icon_path : "assets/${project.name}/icon.png",
+                "minecraft_version"   : project.hasProperty("minecraft_version") ? project.minecraft_version : "",
                 "fabricloader_version": project.hasProperty("loader_version") ? project.loader_version : "",
-                "license_type"     : project.hasProperty("license_type")      ? project.license_type      : "",
-                "authors"          : authorsJson, // Insert as JSON array string
-                "contact"          : contactJson, // Insert as JSON object string
-                "custom"           : customJson, // Insert custom data as JSON object string
-                "java_version"   : effectiveJavaVersion.majorVersion,
+                "license_type"        : project.hasProperty("license_type") ? project.license_type : "",
+                "authors"             : authorsJson, // Insert as JSON array string
+                "contact"             : contactJson, // Insert as JSON object string
+                "custom"              : customJson, // Insert custom data as JSON object string
+                "java_version"        : effectiveJavaVersion.majorVersion,
+                "environment"         : project.hasProperty("environment") ? project.environment : enviroment,
+                "entrypoints"         : entrypoints ? groovy.json.JsonOutput.toJson(entrypoints) : "{}"
         ])
     }
 }
