@@ -1,12 +1,55 @@
+import org.gradle.api.JavaVersion
+import org.gradle.api.tasks.JavaExec
+import org.gradle.jvm.toolchain.JavaToolchainService
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.api.tasks.compile.JavaCompile
+
 plugins {
     id 'systems.manifold.manifold-gradle-plugin' version "${manifold_plugin_version}"
     id 'fabric-loom' version "${loom_version}"
     id 'maven-publish'
     alias(libs.plugins.shadow)
     alias(libs.plugins.minotaur)
+    alias(libs.plugins.blossom)
 }
 
 apply from: 'https://raw.githubusercontent.com/uebliche/mod-template/main/build.main.gradle'
+
+def javaToolchainService = project.extensions.getByType(JavaToolchainService)
+def java25Launcher = javaToolchainService.launcherFor {
+    languageVersion = JavaLanguageVersion.of(25)
+}
+def java25Home = java25Launcher.map { it.metadata.installationPath.asFile }
+
+loom {
+    runs.configureEach {
+        environmentVariables.put("JAVA_HOME", java25Home.get().absolutePath)
+        vmArgs.addAll(["-Djava.home=${java25Home.get().absolutePath}".toString()])
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+tasks.withType(JavaCompile).configureEach {
+    javaCompiler.set(javaToolchainService.compilerFor {
+        languageVersion = JavaLanguageVersion.of(25)
+    })
+    options.release = 25
+}
+
+tasks.withType(JavaExec).configureEach {
+    javaLauncher.set(java25Launcher)
+    environment "JAVA_HOME", java25Home.get().absolutePath
+    doFirst {
+        executable = java25Launcher.get().executablePath.asFile.absolutePath
+    }
+}
 
 dependencies {
     implementation libs.minestom
@@ -36,3 +79,4 @@ jar {
     // Dynamischer JAR-Dateiname basierend auf MC- und Mod-Version
     archiveFileName = "${archives_base_name}-${minecraft_version}+${mod_version}.jar"
 }
+
