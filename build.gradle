@@ -16,38 +16,38 @@ plugins {
 apply from: 'https://raw.githubusercontent.com/uebliche/mod-template/main/build.main.gradle'
 
 def javaToolchainService = project.extensions.getByType(JavaToolchainService)
-def java25Launcher = javaToolchainService.launcherFor {
-    languageVersion = JavaLanguageVersion.of(25)
+def java21Launcher = javaToolchainService.launcherFor {
+    languageVersion = JavaLanguageVersion.of(21)
 }
-def java25Home = java25Launcher.map { it.metadata.installationPath.asFile }
+def java21Home = java21Launcher.map { it.metadata.installationPath.asFile }
 
 loom {
     runs.configureEach {
-        environmentVariables.put("JAVA_HOME", java25Home.get().absolutePath)
-        vmArgs.addAll(["-Djava.home=${java25Home.get().absolutePath}".toString()])
+        environmentVariables.put("JAVA_HOME", java21Home.get().absolutePath)
+        vmArgs.addAll(["-Djava.home=${java21Home.get().absolutePath}".toString()])
     }
 }
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
+        languageVersion = JavaLanguageVersion.of(21)
     }
-    sourceCompatibility = JavaVersion.VERSION_25
-    targetCompatibility = JavaVersion.VERSION_25
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 tasks.withType(JavaCompile).configureEach {
     javaCompiler.set(javaToolchainService.compilerFor {
-        languageVersion = JavaLanguageVersion.of(25)
+        languageVersion = JavaLanguageVersion.of(21)
     })
-    options.release = 25
+    options.release = 21
 }
 
 tasks.withType(JavaExec).configureEach {
-    javaLauncher.set(java25Launcher)
-    environment "JAVA_HOME", java25Home.get().absolutePath
+    javaLauncher.set(java21Launcher)
+    environment "JAVA_HOME", java21Home.get().absolutePath
     doFirst {
-        executable = java25Launcher.get().executablePath.asFile.absolutePath
+        executable = java21Launcher.get().executablePath.asFile.absolutePath
     }
 }
 
