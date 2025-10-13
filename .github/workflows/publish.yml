@@ -88,7 +88,7 @@ jobs:
           if [ -z "$POLAR_VERSION" ]; then
             POLAR_VERSION=$(awk -F'=' '/^mod_version=/{gsub(/\r/, "", $2); print $2; exit}' gradle.properties)
           fi
-          TAG="${DATE}-m:${MC_VERSION}-p:${POLAR_VERSION}"
+          TAG="${DATE}-m-${MC_VERSION}-p-${POLAR_VERSION}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "VERSION_TAG=$TAG" >> "$GITHUB_ENV"
 
