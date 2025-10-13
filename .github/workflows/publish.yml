@@ -78,8 +78,22 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Prepare Version Tag
+        id: version_tag
+        env:
+          MC_VERSION: ${{ matrix.mc_version }}
+        run: |
+          DATE=$(date +"%Y.%m.%d")
+          POLAR_VERSION=$(awk -F'"' '/^[[:space:]]*polar[[:space:]]*=[[:space:]]*"[0-9]/{gsub(/\r/, "", $2); print $2; exit}' gradle/libs.versions.toml)
+          if [ -z "$POLAR_VERSION" ]; then
+            POLAR_VERSION=$(awk -F'=' '/^mod_version=/{gsub(/\r/, "", $2); print $2; exit}' gradle.properties)
+          fi
+          TAG="${DATE}-m:${MC_VERSION}-p:${POLAR_VERSION}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "VERSION_TAG=$TAG" >> "$GITHUB_ENV"
+
       - name: Build
-        run: ./gradlew build shadowJar -Pminecraft_version=${{ matrix.mc_version }}
+        run: ./gradlew build shadowJar -Pminecraft_version=${{ matrix.mc_version }} -Ptag=${{ steps.version_tag.outputs.tag }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -91,4 +105,4 @@ jobs:
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           GITHUB_SHA: ${{ github.sha }}
-        run: ./gradlew modrinth -Pminecraft_version=${{ matrix.mc_version }}
+        run: ./gradlew modrinth -Pminecraft_version=${{ matrix.mc_version }} -Ptag=${{ steps.version_tag.outputs.tag }}
