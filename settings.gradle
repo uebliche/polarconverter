@@ -23,7 +23,11 @@ pluginManagement {
             def gradleVersion = org.gradle.util.GradleVersion.current().version
             def gradleMajor = (gradleVersion?.tokenize('.')?.first() ?: "0") as int
             if (gradleMajor < 9) {
-                def candidate = versions.find { !it.startsWith("1.15.") }
+                def candidate = versions.find { it.startsWith("1.13.") }
+                if (candidate) return candidate
+                candidate = versions.find { it.startsWith("1.12.") }
+                if (candidate) return candidate
+                candidate = versions.find { !it.startsWith("1.15.") && !it.startsWith("1.14.") }
                 if (candidate) return candidate
             }
             return versions[0]
