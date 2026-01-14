@@ -3,17 +3,123 @@ import org.gradle.api.tasks.JavaExec
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.api.tasks.compile.JavaCompile
+import groovy.json.JsonSlurper
 
 plugins {
     id 'systems.manifold.manifold-gradle-plugin' version "${manifold_plugin_version}"
     id 'fabric-loom' version "${loom_version}"
+    id 'net.uebliche.mcmeta'
     id 'maven-publish'
     alias(libs.plugins.shadow)
     alias(libs.plugins.minotaur)
     alias(libs.plugins.blossom)
 }
 
-apply from: 'https://raw.githubusercontent.com/uebliche/mod-template/main/build.main.gradle'
+project.version = project.hasProperty("tag") ? project.tag : "dev"
+
+if (project.hasProperty("mcVersion")) {
+    project.minecraft_version = project.mcVersion
+}
+
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+def resolveMinecraftVersion = { ->
+    def candidates = [
+            project.findProperty("mcVersion"),
+            project.findProperty("minecraft_version"),
+            project.hasProperty("minecraft_version") ? project.minecraft_version : null
+    ]
+    candidates.find { it }?.toString()
+}
+
+mcmeta {
+    minecraftVersion = resolveMinecraftVersion() ?: ""
+    repositories {
+        all()
+    }
+}
+
+def generateMcVersionMacros(List<String> versions, int selectedIndex) {
+    def sb = new StringBuilder("# DO NOT TOUCH THIS FILE, it is handled by the build script\n")
+    versions.eachWithIndex { v, i ->
+        sb << "MC_${v.replace('.', '_')}=${i}\n"
+        if (i == selectedIndex) sb << "MC_VER=${i}\n"
+    }
+    new File(project.projectDir, "build.properties").text = sb.toString()
+    println "📝 build.properties written with ${versions.size()} versions (MC_VER=${selectedIndex}) for Minecraft ${project.minecraft_version}."
+    println "Available versions: ${versions.join(', ')}"
+    println "Selected version: ${versions[selectedIndex]} (index ${selectedIndex})"
+    println "Build properties file written to: ${new File(project.projectDir, "build.properties").absolutePath}"
+    println sb.toString()
+}
+
+tasks.register('generatePreprocessorDefinitions') {
+    doLast {
+        def mcVersion = project.minecraft_version
+        def parsed = new JsonSlurper().parse(new URL("https://meta.fabricmc.net/v2/versions/game"))
+        def versions = parsed.findAll { it.stable }*.version.sort { a, b ->
+            def parse = { it.tokenize('.').collect { it as int } }
+            def pa = parse(a)
+            def pb = parse(b)
+            for (int i = 0; i < Math.max(pa.size(), pb.size()); i++) {
+                def va = i < pa.size() ? pa[i] : 0
+                def vb = i < pb.size() ? pb[i] : 0
+                if (va != vb) return va <=> vb
+            }
+            return 0
+        }
+        def index = versions.indexOf(mcVersion)
+        if (index == -1) throw new GradleException("❌ Minecraft version ${mcVersion} is not a known Fabric release.")
+        generateMcVersionMacros(versions, index)
+    }
+}
+tasks.named("compileJava") { dependsOn generatePreprocessorDefinitions }
+
+def ensureMcmetaResolved(String mcVersion) {
+    def extension = project.extensions.findByName("mcmeta")
+    if (extension == null) {
+        throw new GradleException("mcmeta plugin not applied. Please apply net.uebliche.mcmeta.")
+    }
+    def current = extension.minecraftVersion?.toString()?.trim()
+    if (!current || current != mcVersion) {
+        extension.minecraftVersion = mcVersion
+    }
+    extension.resolveNow(project)
+}
+
+def resolveFabricVersions(String mcVersion) {
+    ensureMcmetaResolved(mcVersion)
+
+    def loaderOverride = project.findProperty("loader_version") ?: project.findProperty("fabric_loader_version")
+    def apiOverride = project.findProperty("fabric_api_version") ?: project.findProperty("fabric_version")
+
+    def loader = loaderOverride?.toString()?.trim()
+    def api = apiOverride?.toString()?.trim()
+
+    if (!loader) {
+        loader = project.ext.has("mcmetaFabricLoaderVersion") ? project.ext.mcmetaFabricLoaderVersion : null
+    }
+    if (!api) {
+        api = project.ext.has("mcmetaFabricApiVersion") ? project.ext.mcmetaFabricApiVersion : null
+    }
+
+    if (!loader) {
+        throw new GradleException("mcmeta: Fabric loader version missing for Minecraft ${mcVersion}")
+    }
+    if (!api) {
+        throw new GradleException("mcmeta: Fabric API version missing for Minecraft ${mcVersion}")
+    }
+
+    return [loader: loader, api: api]
+}
+
+def resolved = resolveFabricVersions(project.minecraft_version)
+ext.loader_version = resolved.loader
+ext.fabric_version = resolved.api
 
 def javaToolchainService = project.extensions.getByType(JavaToolchainService)
 def java25Launcher = javaToolchainService.launcherFor {
@@ -40,7 +146,21 @@ tasks.withType(JavaCompile).configureEach {
     javaCompiler.set(javaToolchainService.compilerFor {
         languageVersion = JavaLanguageVersion.of(25)
     })
+    def propsFile = file("build.properties")
+    def macroArgs = []
+    if (propsFile.exists()) {
+        def props = new Properties()
+        propsFile.withInputStream { props.load(it) }
+        props.each { k, v ->
+            macroArgs += "-A${k}=${v}"
+        }
+    }
     options.release = 25
+    options.compilerArgs += [
+            "-Xplugin:Manifold",
+            "-Xlint:unchecked",
+            "-Xlint:deprecation"
+    ] + macroArgs
 }
 
 tasks.withType(JavaExec).configureEach {
@@ -52,6 +172,11 @@ tasks.withType(JavaExec).configureEach {
 }
 
 dependencies {
+    annotationProcessor libs.manifold
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
     implementation libs.minestom
     implementation libs.polar
     shadow libs.minestom
@@ -79,4 +204,3 @@ jar {
     // Dynamischer JAR-Dateiname basierend auf MC- und Mod-Version
     archiveFileName = "${archives_base_name}-${minecraft_version}+${mod_version}.jar"
 }
-

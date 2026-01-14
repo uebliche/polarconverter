@@ -1,0 +1,32 @@
+{
+  "defaults": {
+    "loader": "fabric",
+    "runMode": "client",
+    "version": "1.21.10"
+  },
+  "gradleArgs": [
+    "--build-cache",
+    "--parallel",
+    "-PmcVersion={mcVersion}"
+  ],
+  "group": "development",
+  "id": "mod/polar-converter",
+  "kind": "project",
+  "loaderSource": "mcmeta",
+  "modrinth": {
+    "projectId": "lJHqXILb"
+  },
+  "name": "Polar Converter",
+  "path": ".",
+  "runModes": [
+    "client"
+  ],
+  "tasks": {
+    "build": "build",
+    "runClient": "runClient",
+    "template": "{task}"
+  },
+  "versionRange": {
+    "min": "1.21.9"
+  }
+}

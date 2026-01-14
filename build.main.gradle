@@ -4,9 +4,11 @@
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 
-ext.cachedJdList = null
-
 project.version = project.hasProperty("tag") ? project.tag : "dev"
+
+if (project.hasProperty("mcVersion")) {
+    project.minecraft_version = project.mcVersion
+}
 
 group = project.maven_group
 
@@ -101,42 +103,40 @@ tasks.withType(JavaCompile).configureEach {
 
 // -------------------- Dependency Resolution --------------------
 // This function resolves the correct Fabric loader and API versions for the given Minecraft version.
+def ensureMcmetaResolved(String mcVersion) {
+    def extension = project.extensions.findByName("mcmeta")
+    if (extension == null) {
+        throw new GradleException("mcmeta plugin not applied. Please apply net.uebliche.mcmeta.")
+    }
+    def current = extension.minecraftVersion?.toString()?.trim()
+    if (!current || current != mcVersion) {
+        extension.minecraftVersion = mcVersion
+    }
+    extension.resolveNow(project)
+}
+
 def resolveFabricVersions(String mcVersion) {
-    // Load jdlist.txt from Fabric Maven if not cached yet
-    if (project.ext.cachedJdList == null) {
-        println "🌐 Loading jdlist.txt from Fabric Maven..."
-        project.ext.cachedJdList = new URL("https://maven.fabricmc.net/jdlist.txt").text.readLines()
-    } else {
-        println "⚡ Using cached jdlist.txt"
+    ensureMcmetaResolved(mcVersion)
+
+    def loaderOverride = project.findProperty("loader_version") ?: project.findProperty("fabric_loader_version")
+    def apiOverride = project.findProperty("fabric_api_version") ?: project.findProperty("fabric_version")
+
+    def loader = loaderOverride?.toString()?.trim()
+    def api = apiOverride?.toString()?.trim()
+
+    if (!loader) {
+        loader = project.ext.has("mcmetaFabricLoaderVersion") ? project.ext.mcmetaFabricLoaderVersion : null
+    }
+    if (!api) {
+        api = project.ext.has("mcmetaFabricApiVersion") ? project.ext.mcmetaFabricApiVersion : null
     }
 
-    def jdList = project.ext.cachedJdList
-
-    // Get the loader version from Fabric meta API
-    def loader = new JsonSlurper().parse(new URL("https://meta.fabricmc.net/v2/versions/loader/${mcVersion}"))[0].loader.version
-
-    // Helper function to parse version strings into comparable lists
-    def parseVersion = { String str -> str.tokenize('.+-').collect { token -> token.isNumber() ? token.toInteger() : token } }
-
-    // Find the latest matching fabric-api version for the given Minecraft version
-    def api = jdList.findAll {
-        it.startsWith("fabric-api-") && it.endsWith("+${mcVersion}")
-    }*.replace("fabric-api-", "")
-            .max { a, b ->
-                // Compare two version strings to determine which is newer
-                def va = parseVersion(a)
-                def vb = parseVersion(b)
-                for (int i = 0; i < Math.max(va.size(), vb.size()); i++) {
-                    def ai = i < va.size() ? va[i] : 0
-                    def bi = i < vb.size() ? vb[i] : 0
-                    if (ai instanceof Number && bi instanceof Number) {
-                        if (ai != bi) return ai <=> bi
-                    } else {
-                        return ai.toString() <=> bi.toString()
-                    }
-                }
-                return 0
-            }
+    if (!loader) {
+        throw new GradleException("mcmeta: Fabric loader version missing for Minecraft ${mcVersion}")
+    }
+    if (!api) {
+        throw new GradleException("mcmeta: Fabric API version missing for Minecraft ${mcVersion}")
+    }
 
     // Return both loader and API version as a map
     return [loader: loader, api: api]
@@ -158,7 +158,6 @@ dependencies {
     mappings loom.officialMojangMappings() // Official Mojang mappings
     modImplementation "net.fabricmc:fabric-loader:${loader_version}" // Fabric loader
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}" // Fabric API
-    modRuntimeOnly(libs.devauth.fabric) // DevAuth runtime mod
 
     // Add SLF4J logging dependencies for Minecraft 1.16
     if (project.minecraft_version.startsWith("1.16")) {
@@ -167,11 +166,6 @@ dependencies {
         println "📦 SLF4J enabled for Minecraft ${project.minecraft_version}"
     }
 }
-
-repositories {
-    maven { url = "https://pkgs.dev.azure.com/djtheredstoner/DevAuth/_packaging/public/maven/v1" }
-}
-
 
 sourceSets {
     main {
