@@ -1,5 +1,41 @@
+import groovy.json.JsonSlurper
+
+def resolveFabricLoomVersion() {
+	def mcmetaFile = new File(settingsDir, "../../web/mcmeta/loom-index.json").canonicalFile
+	if (!mcmetaFile.exists()) {
+		throw new GradleException("mcmeta loom index missing: ${mcmetaFile}")
+	}
+	def data = new JsonSlurper().parse(mcmetaFile)
+	def fabric = data?.fabric
+	def stable = fabric?.stable?.toString()?.trim()
+	def snapshot = fabric?.snapshot?.toString()?.trim()
+	if (stable) {
+		return stable
+	}
+	if (snapshot) {
+		return snapshot
+	}
+	def versions = fabric?.versions instanceof Iterable
+			? fabric.versions.collect { it?.toString()?.trim() }.findAll { it }
+			: []
+	if (!versions.isEmpty()) {
+		def gradleVersion = org.gradle.util.GradleVersion.current().version
+		def gradleMajor = (gradleVersion?.tokenize('.')?.first() ?: "0") as int
+		if (gradleMajor < 9) {
+			def candidate = versions.find { !it.startsWith("1.15.") }
+			if (candidate) return candidate
+		}
+		return versions[0]
+	}
+	throw new GradleException("mcmeta Fabric Loom version missing in ${mcmetaFile}")
+}
+
+def fabricLoomVersion = resolveFabricLoomVersion()
 pluginManagement {
 	includeBuild("../../tools/mcmeta-gradle/gradle-plugin")
+	plugins {
+		id "fabric-loom" version fabricLoomVersion
+	}
 	repositories {
 		maven {
 			name = 'Fabric'

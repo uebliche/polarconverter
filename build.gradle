@@ -7,7 +7,7 @@ import groovy.json.JsonSlurper
 
 plugins {
     id 'systems.manifold.manifold-gradle-plugin' version "${manifold_plugin_version}"
-    id 'fabric-loom' version "${loom_version}"
+    id 'fabric-loom'
     id 'net.uebliche.mcmeta'
     id 'maven-publish'
     alias(libs.plugins.shadow)
