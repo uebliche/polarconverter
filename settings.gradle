@@ -8,20 +8,24 @@ pluginManagement {
         }
         def data = new JsonSlurper().parse(mcmetaFile)
         def fabric = data?.fabric
+        def gradleVersion = org.gradle.util.GradleVersion.current().version
+        def gradleMajor = (gradleVersion?.tokenize('.')?.first() ?: "0") as int
         def stable = fabric?.stable?.toString()?.trim()
         def snapshot = fabric?.snapshot?.toString()?.trim()
         if (stable) {
-            return stable
+            if (gradleMajor >= 9 || stable.startsWith("1.13.") || stable.startsWith("1.12.")) {
+                return stable
+            }
         }
         if (snapshot) {
-            return snapshot
+            if (gradleMajor >= 9 || snapshot.startsWith("1.13.") || snapshot.startsWith("1.12.")) {
+                return snapshot
+            }
         }
         def versions = fabric?.versions instanceof Iterable
                 ? fabric.versions.collect { it?.toString()?.trim() }.findAll { it }
                 : []
         if (!versions.isEmpty()) {
-            def gradleVersion = org.gradle.util.GradleVersion.current().version
-            def gradleMajor = (gradleVersion?.tokenize('.')?.first() ?: "0") as int
             if (gradleMajor < 9) {
                 def candidate = versions.find { it.startsWith("1.13.") }
                 if (candidate) return candidate
