@@ -38,3 +38,16 @@ hs_err_*.log
 replay_*.log
 *.hprof
 *.jfr
+.kotlin/
+node_modules/
+dist/
+target/
+.vitepress/cache/
+android/.gradle/
+src-tauri/gen/android/.gradle/
+gradle-plugin/.kotlin/
+gradle-plugin/bin/
+apps/**/node_modules/
+apps/**/dist/
+core/bin/
+features/bin/
