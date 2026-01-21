@@ -11,7 +11,6 @@ plugins {
     id 'net.uebliche.mcmeta'
     id 'maven-publish'
     alias(libs.plugins.shadow)
-    alias(libs.plugins.minotaur)
     alias(libs.plugins.blossom)
 }
 
