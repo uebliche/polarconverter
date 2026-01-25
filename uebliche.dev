@@ -1,4 +1,55 @@
 {
+  "actions": [
+    {
+      "args": [
+        "-lc",
+        "./gradlew build --build-cache --parallel -PmcVersion={mcVersion} -Ploader_cache_file={loader_cache_file} -PonlyLoader={loader}; mkdir -p release/{loader}; for JAR in build/libs/*.jar; do case \"$JAR\" in *-sources.jar|*sources.jar|*-dev.jar|*dev.jar) continue;; esac; cp -v \"$JAR\" release/{loader}/; done"
+      ],
+      "command": "bash",
+      "label": "Deploy mod",
+      "data": {
+        "CLEAN_RELEASE_DIR": "1",
+        "CLEAN_RELEASE_DIR_AFTER": "1"
+      },
+      "deployTargets": {
+        "key": "DEPLOY_TARGETS",
+        "options": [
+          "s3",
+          "modrinth"
+        ],
+        "defaults": [
+          "s3"
+        ],
+        "remember": true,
+        "title": "Deploy targets",
+        "separator": ","
+      },
+      "targetSelect": {
+        "key": "loader",
+        "options": [
+          "fabric"
+        ],
+        "defaults": [
+          "fabric"
+        ],
+        "remember": true,
+        "title": "Deploy loaders",
+        "channelKey": "UPDATE_CHANNEL",
+        "channelOptions": [
+          "release",
+          "beta"
+        ],
+        "channelDefault": "release",
+        "channelTitle": "Channel",
+        "separator": ","
+      },
+      "uploads": [
+        {
+          "path": "release/**"
+        }
+      ]
+    }
+  ],
   "defaults": {
     "loader": "fabric",
     "runMode": "client",
@@ -12,6 +63,7 @@
   "group": "development",
   "id": "mod/polar-converter",
   "kind": "project",
+  "changelogPath": "../../docs/polar-converter/changelog.md",
   "loaderSource": "mcmeta",
   "modrinth": {
     "projectId": "lJHqXILb"

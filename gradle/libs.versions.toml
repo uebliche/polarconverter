@@ -4,7 +4,6 @@ polar = "1.15.0"
 manifold = "2025.1.25"
 slf4j = "1.7.36"
 shadow = "9.0.0-beta15"
-minotaur = "2.+"
 manifold_plugin = "0.0.2-alpha"
 blossom = "2.1.0"
 
@@ -18,5 +17,4 @@ slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 [plugins]
 manifold = { id = "systems.manifold.manifold-gradle-plugin", version.ref = "manifold_plugin" }
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
-minotaur = { id = "com.modrinth.minotaur", version.ref = "minotaur" }
 blossom = { id = "net.kyori.blossom", version.ref = "blossom" }
