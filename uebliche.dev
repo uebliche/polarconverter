@@ -1,6 +1,19 @@
 {
   "actions": [
     {
+      "label": "Run",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "docker compose -f compose.dev.yml up --build"
+      ],
+      "env": {
+        "HOST_PORT": "{HOST_PORT}",
+        "DOCKBRIDGE_AUTOREGISTER": "{DOCKBRIDGE_AUTOREGISTER}",
+        "DOCKBRIDGE_AUTOJOIN": "{DOCKBRIDGE_AUTOJOIN}"
+      }
+    },
+    {
       "args": [
         "-lc",
         "./gradlew build --build-cache --parallel -PmcVersion={mcVersion} -Ploader_cache_file={loader_cache_file} -PonlyLoader={loader}; mkdir -p release/{loader}; for JAR in build/libs/*.jar; do case \"$JAR\" in *-sources.jar|*sources.jar|*-dev.jar|*dev.jar) continue;; esac; cp -v \"$JAR\" release/{loader}/; done"
@@ -52,19 +65,19 @@
   ],
   "defaults": {
     "loader": "fabric",
-    "runMode": "client",
-    "version": "1.21.10"
+    "version": "1.21.10",
+    "runMode": "client"
   },
   "gradleArgs": [
     "--build-cache",
     "--parallel",
     "-PmcVersion={mcVersion}"
   ],
-  "group": "development",
+  "group": "uebliche/public",
   "id": "mod/polar-converter",
   "kind": "project",
   "changelogPath": "../../docs/polar-converter/changelog.md",
-  "loaderSource": "mcmeta",
+  "loaderSource": "matrix",
   "modrinth": {
     "projectId": "lJHqXILb"
   },
@@ -80,5 +93,30 @@
   },
   "versionRange": {
     "min": "1.21.9"
-  }
+  },
+  "vars": [
+    {
+      "key": "HOST_PORT",
+      "label": "Docker host port (0 = auto)",
+      "default": "0"
+    },
+    {
+      "key": "DOCKBRIDGE_AUTOREGISTER",
+      "label": "DockBridge autoregister",
+      "default": "1",
+      "options": [
+        "0",
+        "1"
+      ]
+    },
+    {
+      "key": "DOCKBRIDGE_AUTOJOIN",
+      "label": "DockBridge autojoin",
+      "default": "0",
+      "options": [
+        "0",
+        "1"
+      ]
+    }
+  ]
 }
